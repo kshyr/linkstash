@@ -56,16 +56,18 @@ fn stash_link(url: &str) {
     write_urls(&urls);
 
     println!("Added {} to stash.", url);
-    println!("{:?}", urls);
+    println!("{:?}", urls.iter().rev().collect::<Vec<_>>());
 }
 
 fn delete_link(index: usize) {
     let mut urls = read_urls();
 
-    if index < urls.len() {
-        urls.remove(index);
+    // 1-indexed
+    if index <= urls.len() {
+        urls.remove(urls.len() - index);
         write_urls(&urls);
         println!("URL at index {} deleted from urls.json", index);
+        println!("{:?}", urls.iter().rev().collect::<Vec<_>>())
     } else {
         println!("Invalid index!");
     }
