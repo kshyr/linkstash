@@ -22,6 +22,8 @@ pub enum Commands {
     Add(Link),
     /// delete URL by index
     Delete(Index),
+    /// list all links
+    List,
 }
 
 #[derive(Debug, Args, Serialize, Deserialize)]
@@ -42,7 +44,16 @@ fn main() {
     match &args.command {
         Some(Commands::Add(Link { url })) => stash_link(url),
         Some(Commands::Delete(Index { index })) => delete_link(*index),
+        Some(Commands::List) => list_all(),
         None => (),
+    }
+}
+
+fn list_all() {
+    let urls = read_urls();
+
+    for (i, url) in urls.iter().rev().enumerate() {
+        println!("{}. {:?}", i + 1, url)
     }
 }
 
