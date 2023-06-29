@@ -1,5 +1,7 @@
 use clap::{Args, Parser, Subcommand};
 use directories_next::{self, ProjectDirs};
+use open;
+use opengraph;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::fs::{create_dir_all, File};
@@ -19,32 +21,40 @@ pub struct CLI {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// add URL to store
-    Add(Link),
+    Add(LinkArg),
     /// delete URL by index
-    Delete(Index),
+    Delete(IndexArg),
     /// list all links
     List,
+    Open(IndexArg),
 }
 
-#[derive(Debug, Args, Serialize, Deserialize)]
-pub struct Link {
+#[derive(Debug, Args)]
+pub struct LinkArg {
     /// URL to store
     pub url: String,
 }
 
 #[derive(Debug, Args)]
-pub struct Index {
+pub struct IndexArg {
     /// index
     pub index: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Link {
+    pub url: String,
+    pub title: String,
 }
 
 fn main() {
     let args = CLI::parse();
 
     match &args.command {
-        Some(Commands::Add(Link { url })) => stash_link(url),
-        Some(Commands::Delete(Index { index })) => delete_link(*index),
+        Some(Commands::Add(LinkArg { url })) => stash_link(url),
+        Some(Commands::Delete(IndexArg { index })) => delete_link(*index),
         Some(Commands::List) => list_all(),
+        Some(Commands::Open(IndexArg { index })) => open_link(*index),
         None => (),
     }
 }
@@ -52,22 +62,27 @@ fn main() {
 fn list_all() {
     let urls = read_urls();
 
-    for (i, url) in urls.iter().rev().enumerate() {
-        println!("{}. {:?}", i + 1, url)
+    for (i, link) in urls.iter().rev().enumerate() {
+        println!("\n{}. {}", i + 1, link.title);
+        println!("{}", link.url);
     }
 }
 
 fn stash_link(url: &str) {
-    let mut urls = read_urls();
+    if let Ok(obj) = opengraph::scrape(&url, Default::default()) {
+        let link = Link {
+            url: url.to_string(),
+            title: obj.title,
+        };
 
-    urls.push(Link {
-        url: url.to_owned(),
-    });
-
-    write_urls(&urls);
-
-    println!("Added {} to stash.", url);
-    println!("{:?}", urls.iter().rev().collect::<Vec<_>>());
+        let mut urls = read_urls();
+        urls.push(link);
+        write_urls(&urls);
+        println!("Added {} to stash.", url);
+        list_all();
+    } else {
+        println!("Error reading link.");
+    }
 }
 
 fn delete_link(index: usize) {
@@ -78,9 +93,18 @@ fn delete_link(index: usize) {
         urls.remove(urls.len() - index);
         write_urls(&urls);
         println!("URL at index {} deleted from urls.json", index);
-        println!("{:?}", urls.iter().rev().collect::<Vec<_>>())
+        list_all();
     } else {
         println!("Invalid index!");
+    }
+}
+
+fn open_link(index: usize) {
+    let urls = read_urls();
+    let url = &urls.get(urls.len() - index).unwrap().url;
+    match open::that(url) {
+        Ok(()) => println!("Opened '{}'", url),
+        Err(err) => println!("Error when opening '{}': {}", url, err),
     }
 }
 
