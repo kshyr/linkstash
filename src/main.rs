@@ -10,9 +10,17 @@ use std::path::PathBuf;
 
 const STASH_FILENAME: &str = "stash.json";
 
+const LOGO: &str = r"
+by kshyr    __    _       __   _____ __             __  
+           / /   (_)___  / /__/ ___// /_____ ______/ /_ 
+          / /   / / __ \/ //_/\__ \/ __/ __ `/ ___/ __ \
+         / /___/ / / / / ,<  ___/ / /_/ /_/ (__  ) / / /
+        /_____/_/_/ /_/_/|_|/____/\__/\__,_/____/_/ /_/ 
+";
+
 #[derive(Debug, Parser)]
 #[command(arg_required_else_help = true)]
-#[clap(author, version, about)]
+#[clap(author, version, about = LOGO)]
 pub struct CLI {
     #[clap(subcommand)]
     pub command: Option<Commands>,
