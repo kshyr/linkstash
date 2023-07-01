@@ -12,3 +12,4 @@ serde = {version = "1.0.164", features = ["derive"]}
 directories-next = "2.0.0"
 opengraph = "0.2.4"
 open = "5.0.0"
+ansi_term = "0.12.1"

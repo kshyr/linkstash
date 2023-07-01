@@ -1,12 +1,19 @@
+use ansi_term::{
+    Color::{Blue, Cyan, Green, Red, RGB},
+    Style,
+};
 use clap::{Args, Parser, Subcommand};
 use directories_next::{self, ProjectDirs};
 use open;
 use opengraph;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::path::PathBuf;
+use std::{
+    fs::{create_dir_all, File},
+    process::Command,
+};
 
 const STASH_FILENAME: &str = "stash.json";
 
@@ -20,7 +27,7 @@ by kshyr    __    _       __   _____ __             __
 
 #[derive(Debug, Parser)]
 #[command(arg_required_else_help = true)]
-#[clap(author, version, about = LOGO)]
+#[clap(author, version, about = format!("{}", RGB(170, 170, 240).bold().paint(LOGO)))]
 pub struct CLI {
     #[clap(subcommand)]
     pub command: Option<Commands>,
@@ -28,13 +35,14 @@ pub struct CLI {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// add URL to store
+    /// Add URL to store
     Add(LinkArg),
-    /// delete URL by index
+    /// Delete URL by index
     Delete(IndexArg),
-    /// list all links
+    /// List all links
     List,
-    Open(IndexArg),
+    /// Open link with default browser or app of choice
+    Open(OpenArgs),
 }
 
 #[derive(Debug, Args)]
@@ -45,11 +53,19 @@ pub struct LinkArg {
 
 #[derive(Debug, Args)]
 pub struct IndexArg {
-    /// index
+    /// Index
     pub index: usize,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Args)]
+pub struct OpenArgs {
+    /// Index
+    pub index: usize,
+    /// Program to open link with
+    pub program: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Link {
     pub url: String,
     pub title: String,
@@ -62,7 +78,7 @@ fn main() {
         Some(Commands::Add(LinkArg { url })) => stash_link(url),
         Some(Commands::Delete(IndexArg { index })) => delete_link(*index),
         Some(Commands::List) => list_all(),
-        Some(Commands::Open(IndexArg { index })) => open_link(*index),
+        Some(Commands::Open(OpenArgs { index, program })) => open_link(*index, program),
         None => (),
     }
 }
@@ -70,9 +86,15 @@ fn main() {
 fn list_all() {
     let urls = read_urls();
 
+    println!("");
     for (i, link) in urls.iter().rev().enumerate() {
-        println!("\n{}. {}", i + 1, link.title);
-        println!("{}", link.url);
+        println!(
+            "    {}. {}",
+            Style::new().bold().paint((i + 1).to_string()),
+            Blue.bold().paint(&link.title)
+        );
+        println!("       {}", Style::new().italic().paint(&link.url));
+        println!("");
     }
 }
 
@@ -86,10 +108,10 @@ fn stash_link(url: &str) {
         let mut urls = read_urls();
         urls.push(link);
         write_urls(&urls);
-        println!("Added {} to stash.", url);
+        println!("\nAdded {} to stash.\n", Style::new().italic().paint(url));
         list_all();
     } else {
-        println!("Error reading link.");
+        println!("{}", RGB(250, 100, 100).bold().paint("Error reading link."));
     }
 }
 
@@ -98,21 +120,33 @@ fn delete_link(index: usize) {
 
     // 1-indexed
     if index <= urls.len() {
+        let url = urls.get(urls.len() - index).unwrap().url.clone();
         urls.remove(urls.len() - index);
         write_urls(&urls);
-        println!("URL at index {} deleted from urls.json", index);
+        println!(
+            "\n{} is removed from stash.\n",
+            Style::new().italic().paint(url)
+        );
         list_all();
     } else {
-        println!("Invalid index!");
+        println!("{}", RGB(250, 100, 100).bold().paint("Invalid index!"));
     }
 }
 
-fn open_link(index: usize) {
+fn open_link(index: usize, program: &Option<String>) {
     let urls = read_urls();
     let url = &urls.get(urls.len() - index).unwrap().url;
-    match open::that(url) {
-        Ok(()) => println!("Opened '{}'", url),
-        Err(err) => println!("Error when opening '{}': {}", url, err),
+    if let Some(prog) = program {
+        Command::new(prog).arg(url).spawn().unwrap();
+    } else {
+        match open::that(url) {
+            Ok(()) => println!("\nOpened '{}'\n", Style::new().italic().paint(url)),
+            Err(err) => println!(
+                "Error when opening '{}': {}",
+                Style::new().italic().paint(url),
+                RGB(250, 100, 100).bold().paint(err.to_string())
+            ),
+        }
     }
 }
 
